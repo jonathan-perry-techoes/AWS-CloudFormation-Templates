@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  ProjectEnv:
+    Description: Environment of project
+    Type: String
+  AccountCode:
+    Description: Account Code
+    Type: String
+    AllowedValues:
+      - PRD
+      - STA
+      - DEV
+​
+Resources:
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub SYS-${AccountCode}-CFT-AGW-${ProjectEnv}_Api
+      Description: !Sub SYS-${AccountCode}-CFT-AGW-${ProjectEnv}_Api
+      EndpointConfiguration:
+        Types:
+          - PRIVATE
+        VpcEndpointIds: 
+          - String
+      
+​
+Outputs:
+  ApiGatewayRestApi:
+    Value: !Ref ApiGatewayRestApi
+    Description: ApiGatewayRestApi
+    Export:
+      Name: !Sub ${AccountCode}-${ProjectEnv}-api-gateway
