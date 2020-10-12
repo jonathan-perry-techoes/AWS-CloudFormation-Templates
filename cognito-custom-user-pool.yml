@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for Cognito.
+​
+Parameters:
+  ProjectEnv:
+    Description: Environment of project
+    Type: String
+  AccountCode:
+    Description: Account Code
+    Type: String
+    AllowedValues:
+      - PRD
+      - STA
+      - DEV
+​
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub SYS-${AccountCode}-CFT-CGU-${ProjectEnv}_UserPool
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        UnusedAccountValidityDays: 7
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationMessage: "Your verification code is {####}."
+      EmailVerificationSubject: "Your verification code"
+      MfaConfiguration: 'OFF'
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          RequireUppercase: false
+      Schema:
+        - AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Name: email
+          StringAttributeConstraints:
+            MaxLength: 256
+            MinLength: 3
+          Required: true
+        - Name: customerId:
+          AttributeDataType: String
+          StringAttributeConstraints:
+            MaxLength: 256
+            MinLength: 1
+          Mutable: true
+        - Name: loginKey:
+          AttributeDataType: String
+          StringAttributeConstraints:
+            MaxLength: 256
+            MinLength: 1
+          Mutable: true
+        - Name: previousLoginDateTime:
+          AttributeDataType: String
+          StringAttributeConstraints:
+            MaxLength: 256
+            MinLength: 1
+          Mutable: true
+                  
+​
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub SYS-${AccountCode}-CFT-CGC-${ProjectEnv}_UserPoolClient
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+      RefreshTokenValidity: 7
+      GenerateSecret: false
+​
+  CognitoIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: !Sub SYS-${AccountCode}-CFT-CGI-${ProjectEnv}_IdentityPool
+      AllowUnauthenticatedIdentities: true
+      CognitoIdentityProviders:
+        - ClientId: !Ref UserPoolClient
+          ProviderName: !GetAtt UserPool.ProviderName
+          ServerSideTokenCheck: true
+​
+  CognitoRoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref CognitoIdentityPool
+      Roles:
+        unauthenticated: !Sub
+          - arn:aws:iam::${AWS::AccountId}:role/${CognitoUnauthRole}
+          - CognitoUnauthRole:
+              Fn::ImportValue: !Sub ${AccountCode}-${ProjectEnv}-cognito-unauth-role
+        authenticated: !Sub
+          - arn:aws:iam::${AWS::AccountId}:role/${CognitoAuthRole}
+          - CognitoAuthRole:
+              Fn::ImportValue: !Sub ${AccountCode}-${ProjectEnv}-cognito-auth-role
+      # RoleMappings: !GetAtt IdentityPoolRoleAttachmentMapping.RoleMappings
+​
+  UserPoolGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: !Sub SYS-${AccountCode}-CFT-CGG-${ProjectEnv}_UserPoolGroup
+      RoleArn: !Sub
+        - arn:aws:iam::${AWS::AccountId}:role/${CognitoGroupRole}
+        - CognitoGroupRole:
+            Fn::ImportValue: !Sub ${AccountCode}-${ProjectEnv}-cognito-group-role
+      UserPoolId: !Ref UserPool
+      Precedence: 0
+​
+Outputs:
+  UserPool:
+    Description: User Pool
+    Value: !GetAtt UserPool.Arn
+​
+  UserPoolClient:
+    Description: User Pool Client
+    Value: !Ref UserPoolClient
